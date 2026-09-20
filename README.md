@@ -55,5 +55,6 @@ The `event` is of type `UserEvent_t`, consisting of fields `eventType` and `data
 When a message is received in the queue, it's `eventType` field (first byte) is first checked, getting the information what the event is about. The possible event types are enumerated in `EventType_e`, with the possible values `noEvent`,`encChangeEvent`,`switchEvent`.
 
 In the case of `encChangeEvent`, the encoder has changed position, and `change` is updated from `data`. Our demo variable `àdjustable` is increased by change (positive or negative).
+
 In the csae of `refreshTimerEvent` the LCD is refreshed.
 
