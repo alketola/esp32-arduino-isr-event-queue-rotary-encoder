@@ -56,5 +56,5 @@ When a message is received in the queue, it's `eventType` field (first byte) is 
 
 In the case of `encChangeEvent`, the encoder has changed position, and `change` is updated from `data`. Our demo variable `àdjustable` is increased by change (positive or negative).
 
-In the csae of `refreshTimerEvent` the LCD is refreshed.
+In the case of `refreshTimerEvent` the LCD is refreshed. An ESP32 hardware timer is used to generate the periodic event.
 
