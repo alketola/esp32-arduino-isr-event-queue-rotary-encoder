@@ -1,7 +1,7 @@
 # esp32-arduino-isr-event-queue-rotary-encoder
-An Arduino example sketch with interrupts, message queue, rotary encoder, buttons and I2C connected LCD display
+An Arduino example sketch with interrupts, message queue, rotary encoder, buttons and I2C connected LCD display.
 
-This example project allows you to cahnge a value on an LCD screen by turning a rotary encoder, and see if any of the three buttons is pressed.
+This example project allows you to change a value on an LCD screen by turning a rotary encoder, and see if any of the three buttons is pressed.
 
 ## Hardware required
 - ESP32 devkit v1
