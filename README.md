@@ -1,7 +1,7 @@
 # esp32-arduino-isr-event-queue-rotary-encoder
-An Arduino example sketch with interrupts, message queue, rotary encoder, buttons and I2C connected LCD display
+An Arduino example sketch with interrupts, message queue, rotary encoder, buttons and I2C connected LCD display.
 
-This example project allows you to cahnge a value on an LCD screen by turning a rotary encoder, and see if any of the three buttons is pressed.
+This example project allows you to change a value on an LCD screen by turning a rotary encoder, and see if any of the three buttons is pressed.
 
 ## Hardware required
 - ESP32 devkit v1
@@ -55,5 +55,6 @@ The `event` is of type `UserEvent_t`, consisting of fields `eventType` and `data
 When a message is received in the queue, it's `eventType` field (first byte) is first checked, getting the information what the event is about. The possible event types are enumerated in `EventType_e`, with the possible values `noEvent`,`encChangeEvent`,`switchEvent`.
 
 In the case of `encChangeEvent`, the encoder has changed position, and `change` is updated from `data`. Our demo variable `àdjustable` is increased by change (positive or negative).
-In the csae of `refreshTimerEvent` the LCD is refreshed.
+
+In the case of `refreshTimerEvent` the LCD is refreshed. An ESP32 hardware timer is used to generate the periodic event.
 
