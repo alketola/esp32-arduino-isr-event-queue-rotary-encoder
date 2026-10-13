@@ -34,7 +34,7 @@
 #define SWITCH4_MASK 0x8
 
 // Timing constants
-const uint16_t PAUSE_USEC = 25000; // HW timer precision microseconds
+const uint16_t PAUSE_USEC = 25000;  // HW timer precision microseconds
 const uint16_t FAST_INCREMENT = 5;
 const uint16_t SWITCH_DEBOUNCE_US = 60000;  // microsec
 
@@ -80,7 +80,7 @@ unsigned long lastIncReadTime = esp_timer_get_time();
 unsigned long lastDecReadTime = esp_timer_get_time();
 unsigned long lastSwitchReadTime = esp_timer_get_time();
 
-// The global variables that are adjusted in this example ; 
+// The global variables that are adjusted in this example ;
 // a single thread access through queued events protects the access
 // volatile necessary, not letting the compiler optimize out the writes and reads
 volatile int adjustable;
@@ -138,7 +138,7 @@ void loop() {
         change = event.data.encChange;
         adjustable += change;
         break;
-      case switchEvent: // switch press event
+      case switchEvent:  // switch press event
         if (event.data.switches & ENC_SWITCH_MASK) {
           sw_enc = true;
         }
@@ -150,7 +150,7 @@ void loop() {
         }
         break;
       // end case switchEvent
-      case refreshTimerEvent: // HW timer triggered refresh timeout event
+      case refreshTimerEvent:  // HW timer triggered refresh timeout event
         Serial.println("Refresh Timer event");
 
         // Reset and restart timer
@@ -158,7 +158,7 @@ void loop() {
         timerAlarm(refreshTimer, 3000000, false, 3000000);
         break;
       case debugEvent:
-        Serial.printf("debug:%02x:\n",(event.data.debug & 0x0f));
+        Serial.printf("debug:%02x:\n", (event.data.debug & 0x0f));
         break;
     }
 
@@ -172,20 +172,6 @@ void loop() {
   }
 }
 
-/*
- Rotary Encorder code Based on Oleg Mazurov's code for rotary encoder interrupt service routines for AVR micros
- here using interrupts: https://chome.nerpa.tech/mcu/rotary-encoder-interrupt-service-routine-for-avr-micros/
- (inaccesible at the time of writing)
- It's a bit of smart bit manipulation.
-
-  rotating clockwise old_enc goes
-  0b1100, 0b0001, 0b0101, 0b0101 ...
-
-  rotating counterclockwise old_enc goes
-  0b1100, 0b0010, 0b1010, 0b1010 ...
-
-*/
-
 void read_encoder_ISR() {
   // Encoder interrupt routine for both pins. Updates counter
   // if they are valid and have rotated a full indent
@@ -194,18 +180,69 @@ void read_encoder_ISR() {
   // set event type in the message
   isrEvent.eventType = encChangeEvent;
 
-  static uint8_t old_enc = 3; // Lookup table index; n.b. static is initialized only once 
-  static const int8_t enc_states[] = { 0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0 };  // Lookup table
-  static int8_t encval = 0;   // Value representing change of encoder position
+  static uint8_t old_enc = 3;  // Lookup table index; n.b. static is initialized only once
+/* 
+  Rotary Encorder code Based on Oleg Mazurov's code for rotary encoder interrupt service routines for AVR micros
+  here using interrupts: https://chome.nerpa.tech/mcu/rotary-encoder-interrupt-service-routine-for-avr-micros/
+  (inaccesible at the time of writing, also mo_thunderz referred to this method in his github code) 
+
+  They didn't document the method too well, I try to open it here, how I've understood it. 
+  Bending from iron wire as we say... ;-) 
+
+  When the rotary encoder is in rest, the pins are pulled up to 11 in rest.
+  When rotated clockwise CLK bit is pulled down first then DT, 01.
+  When rotated counterclockwise the DT bit is first pulled down, 10.
+  Then both CLK and DT ins are pulled down next, 00.
+  When the encoder returns to rest position, the pins float up, 11.
+
+  Therefore:
+    * 11, 01, 00, 11 * is the clockwise sequence => increment = 1
+    * 11, 10, 00, 11 * is the counterclockwise sequence => increment = -1
+
+  __Where do the UNDEFINED come from?__
+  There are some transitions that might occurr because of contact 
+  oscillations etc. and cause undefined jumps, marked as UNDEFINED, 
+  yielding no change; 0.
+  This is makes behavior with real switch-based hardware rotary encoder like KY-040.
+
+  In one rotation, 0011 occurrs every time, but it must be included in one step.
+  Reverse jump, 1100 would be an error, and should not be counted.
+  01 and 10 (or 10 01) can't follow each other and can't be counted.
+*/
+#define STILL 0
+#define UNDEFINED 0
+#define CCW -1
+#define CW 1
+  static const int8_t enc_states[] = {
+    /* index        prev|current value 2 bits each - if UNDEFINED transition, 0 change */
+    STILL,      // 00 = 0b0000 => 0 // No change
+    CCW,        // 01 = 0b0001 => -1 // 00 => 01
+    CW,         // 02 = 0b0010 => 1   // 00 => 10
+    UNDEFINED,  // 03 = 0b0011 => 0 // UNDEFINED transition
+    CW,         // 04 = 0b0100 => 1    // 01 => 00
+    STILL,      // 05 = 0b0101 => 0 // No change
+    UNDEFINED,  // 06 = 0b0110 => 0 // UNDEFINED transition
+    CCW,        // 07 = 0b0111 => -1 // 01 => 11
+    CCW,        // 08 = 0b1000 => -1 // 10 => 00
+    UNDEFINED,  // 09 = 0b1001 => 0 // UNDEFINED transition
+    STILL,      // 10 = 0b1010 => 0  // No change
+    CW,         // 11 = 0b1011 => 1 // 10 => 11
+    UNDEFINED,  // 12 = 0b1100 => 0 // UNDEFINED transition
+    CW,         // 13 = 0b1101 => 1 // 11 => 01
+    CCW,        // 14 = 0b1110 => -1 // 11 => 10
+    STILL       // 15 = 0b1111 => 0 // No change
+  };            // Lookup table
+
+  static int8_t encval = 0;  // Value representing change of encoder position
 
   old_enc <<= 2;  // Remember previous state
 
   if (digitalRead(ENC_CLK_PIN)) old_enc |= 0x02;  // Add current state of pin A
   if (digitalRead(ENC_DT_PIN)) old_enc |= 0x01;   // Add current state of pin B
 
-  encval += enc_states[(old_enc & 0x0f)]; // keeps array index <= 0xF (15)
+  encval += enc_states[(old_enc & 0x0f)];  // keeps array index <= 0xF (15)
   //debug_ISR(&isrEvent, old_enc);
-  
+
   // Update counter if encoder has rotated a full indent, that is at least 4 steps
   if (encval > 3) {  // Four steps forward
     int changevalue = 1;
@@ -215,7 +252,7 @@ void read_encoder_ISR() {
     lastIncReadTime = esp_timer_get_time();
     // counter = counter + changevalue;              // Update counter
     encval = 0;
-      // set event type in the message
+    // set event type in the message
     isrEvent.eventType = encChangeEvent;
     isrEvent.data.encChange = changevalue;
     xQueueSendFromISR(messageQueue, &isrEvent, NULL);
@@ -227,7 +264,7 @@ void read_encoder_ISR() {
     lastDecReadTime = esp_timer_get_time();
     //counter = counter + changevalue;              // Update counter
     encval = 0;
-      // set event type in the message
+    // set event type in the message
     isrEvent.eventType = encChangeEvent;
     isrEvent.data.encChange = changevalue;
     xQueueSendFromISR(messageQueue, &isrEvent, NULL);
@@ -274,7 +311,7 @@ void ARDUINO_ISR_ATTR send_timer_event_ISR() {
 
 // A way to send a debug message
 inline void debug_ISR(UserEvent_t *eventPtr, int value) {
-  EventType_e tmpEvent=eventPtr->eventType;
+  EventType_e tmpEvent = eventPtr->eventType;
   eventPtr->eventType = debugEvent;
   eventPtr->data.debug = value;
   xQueueSendFromISR(messageQueue, eventPtr, NULL);
